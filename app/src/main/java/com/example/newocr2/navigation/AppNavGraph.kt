@@ -1,19 +1,26 @@
 package com.example.newocr2.navigation
 
 import android.graphics.Bitmap
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts.TakePicture
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.newocr2.R
-import com.example.newocr2.camera.CameraCaptureScreen
 import com.example.newocr2.gallery.rememberPhotoPicker
 import com.example.newocr2.ui.main.MainScreen
 import com.example.newocr2.ui.result.ResultScreen
+import com.example.newocr2.util.createImageUri
 import com.example.newocr2.util.uriToBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,7 +29,6 @@ import kotlinx.coroutines.withContext
 /** 앱 내 화면 경로 */
 object Routes {
     const val MAIN   = "main"
-    const val CAMERA = "camera"
     const val RESULT = "result"
 }
 
@@ -31,29 +37,42 @@ object Routes {
  *
  * ## 화면 전환 흐름
  * ```
- * MAIN ──[카메라 버튼]──▶ CAMERA ──[촬영 완료]──▶ RESULT
- *      ──[갤러리 버튼]──▶ (PhotoPicker) ──────────▶ RESULT
+ * MAIN ──[카메라 버튼]──▶ 시스템 카메라 앱 ──[촬영 완료]──▶ RESULT
+ *      ──[갤러리 버튼]──▶ PhotoPicker ──────────────────▶ RESULT
  * ```
  *
- * ## Bitmap 전달 방식
- * [BitmapHolder]를 통해 메모리에서 전달한다.
- * NavArgs로 직렬화하면 Binder 트랜잭션 한도(1 MB)를 초과할 수 있으므로 사용하지 않는다.
+ * 시스템 카메라는 ActivityResultContracts.TakePicture()로 실행하며,
+ * 결과 URI를 [uriToBitmap]으로 변환해 [BitmapHolder]에 저장한 뒤 RESULT로 이동한다.
  */
 @Composable
 fun AppNavGraph(navController: NavHostController = rememberNavController()) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // PhotoPicker — 이미지 선택 후 IO에서 Bitmap 변환 → ResultScreen 이동
+    // 시스템 카메라가 사진을 저장할 URI (TakePicture 실행 직전에 생성)
+    var pendingPhotoUri by remember { mutableStateOf<Uri?>(null) }
+
+    // 시스템 기본 카메라 런처
+    val cameraLauncher = rememberLauncherForActivityResult(TakePicture()) { success ->
+        if (!success) return@rememberLauncherForActivityResult
+        val uri = pendingPhotoUri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val bitmap = withContext(Dispatchers.IO) { uriToBitmap(context, uri) }
+            if (bitmap == null) {
+                Toast.makeText(context, context.getString(R.string.error_image_load_failed), Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            BitmapHolder.bitmap = bitmap
+            navController.navigate(Routes.RESULT)
+        }
+    }
+
+    // 갤러리 (PhotoPicker)
     val openGallery = rememberPhotoPicker { uri ->
         scope.launch {
             val bitmap = withContext(Dispatchers.IO) { uriToBitmap(context, uri) }
             if (bitmap == null) {
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.error_image_load_failed),
-                    Toast.LENGTH_SHORT,
-                ).show()
+                Toast.makeText(context, context.getString(R.string.error_image_load_failed), Toast.LENGTH_SHORT).show()
                 return@launch
             }
             BitmapHolder.bitmap = bitmap
@@ -65,21 +84,12 @@ fun AppNavGraph(navController: NavHostController = rememberNavController()) {
 
         composable(Routes.MAIN) {
             MainScreen(
-                onCameraClick = { navController.navigate(Routes.CAMERA) },
-                onGalleryClick = openGallery,
-            )
-        }
-
-        composable(Routes.CAMERA) {
-            CameraCaptureScreen(
-                onImageCaptured = { bitmap ->
-                    BitmapHolder.bitmap = bitmap
-                    // 카메라 화면을 백스택에서 제거하고 결과 화면으로 이동
-                    navController.navigate(Routes.RESULT) {
-                        popUpTo(Routes.CAMERA) { inclusive = true }
-                    }
+                onCameraClick = {
+                    val uri = createImageUri(context)
+                    pendingPhotoUri = uri
+                    cameraLauncher.launch(uri)
                 },
-                onBack = { navController.popBackStack() },
+                onGalleryClick = openGallery,
             )
         }
 
@@ -88,7 +98,6 @@ fun AppNavGraph(navController: NavHostController = rememberNavController()) {
             if (bitmap != null) {
                 ResultScreen(bitmap = bitmap)
             } else {
-                // BitmapHolder가 비어 있으면 메인으로 복귀
                 navController.popBackStack()
             }
         }
@@ -97,9 +106,6 @@ fun AppNavGraph(navController: NavHostController = rememberNavController()) {
 
 /**
  * 화면 간 Bitmap 전달을 위한 인메모리 홀더.
- *
- * 단순 데모 규모에서는 object 홀더로 충분.
- * 실제 앱이라면 공유 ViewModel을 권장.
  */
 object BitmapHolder {
     var bitmap: Bitmap? = null

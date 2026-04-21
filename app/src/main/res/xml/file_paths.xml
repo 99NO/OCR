@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 시스템 카메라가 저장할 임시 사진 경로 -->
+    <cache-path name="camera_photos" path="images/" />
+</paths>

@@ -51,12 +51,6 @@ dependencies {
     // ML Kit — Korean 모델 (한/영 혼합 문서 처리)
     implementation(libs.mlkit.text.recognition.korean)
 
-    // CameraX
-    implementation(libs.camera.core)
-    implementation(libs.camera.camera2)
-    implementation(libs.camera.lifecycle)
-    implementation(libs.camera.view)
-
     // Compose Navigation
     implementation(libs.navigation.compose)
 

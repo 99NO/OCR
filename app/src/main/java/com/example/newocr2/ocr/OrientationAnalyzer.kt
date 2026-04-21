@@ -46,10 +46,11 @@ object OrientationAnalyzer {
 
                     val ly = computeLocalY(markX, markY, linePts)
 
-                    // 0.33~0.67 구간은 노이즈로 처리 (Latin descender 고려)
+                    // 0.40~0.60 구간은 노이즈로 처리 (ARCHITECTURE.md §5.4)
+                    // 구 임계값 0.67/0.33은 정상 문서 마침표가 localY≈0.60~0.68에 위치해 대부분 보류로 처리되는 문제 있음
                     val score = when {
-                        ly > 0.67f -> +1
-                        ly < 0.33f -> -1
+                        ly > 0.60f -> +1
+                        ly < 0.40f -> -1
                         else -> 0
                     }
 
@@ -76,7 +77,7 @@ object OrientationAnalyzer {
         val avg = if (contributing > 0) scoreSum.toDouble() / contributing else 0.0
 
         val decision = when {
-            contributing < 3 -> Decision.UNCERTAIN
+            contributing < 2 -> Decision.UNCERTAIN   // 3→2: 구두점이 적은 문서에서도 판정 가능하게
             avg > 0.5        -> Decision.NORMAL
             avg < -0.5       -> Decision.FLIPPED
             else             -> Decision.UNCERTAIN
