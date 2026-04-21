@@ -12,20 +12,22 @@ const val MAX_LONG_SIDE = 2048
 /**
  * Uri로부터 Bitmap을 디코딩하고 긴 변이 [MAX_LONG_SIDE]를 넘으면 다운샘플한다.
  *
- * 스토리지 권한 없이 ContentResolver를 통해 읽으므로 PhotoPicker Uri에 적합하다.
- *
- * @return ARGB_8888 Bitmap. 실패 시 null.
+ * @return ARGB_8888 Bitmap. 스트림 열기 실패 또는 디코딩 실패 시 null.
  */
 fun uriToBitmap(context: Context, uri: Uri): Bitmap? {
+    val cr = context.contentResolver
+
     // 1단계: 원본 크기만 읽어 inSampleSize 계산
+    // ※ inJustDecodeBounds=true 이면 decodeStream은 항상 null을 반환한다.
+    //   openInputStream 성공 여부는 반드시 별도로 null 체크해야 한다.
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    context.contentResolver.openInputStream(uri)?.use { stream ->
-        BitmapFactory.decodeStream(stream, null, bounds)
-    } ?: return null
+    val firstStream = cr.openInputStream(uri) ?: return null
+    firstStream.use { BitmapFactory.decodeStream(it, null, bounds) }
+
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
     val longSide = maxOf(bounds.outWidth, bounds.outHeight)
     val sampleSize = if (longSide > MAX_LONG_SIDE) {
-        // 2의 거듭제곱으로 올림 (BitmapFactory 권장 방식)
         var s = 1
         while ((longSide / (s * 2)) > MAX_LONG_SIDE) s *= 2
         s
@@ -38,16 +40,12 @@ fun uriToBitmap(context: Context, uri: Uri): Bitmap? {
         inSampleSize = sampleSize
         inPreferredConfig = Bitmap.Config.ARGB_8888
     }
-    return context.contentResolver.openInputStream(uri)?.use { stream ->
-        BitmapFactory.decodeStream(stream, null, opts)
-    }
+    val secondStream = cr.openInputStream(uri) ?: return null
+    return secondStream.use { BitmapFactory.decodeStream(it, null, opts) }
 }
 
 /**
  * Bitmap을 주어진 각도만큼 회전한다.
- *
- * @param degrees 회전 각도 (시계 방향, 예: 180f)
- * @return 회전된 새 Bitmap
  */
 fun Bitmap.rotate(degrees: Float): Bitmap {
     val matrix = Matrix().apply { postRotate(degrees) }
@@ -56,9 +54,6 @@ fun Bitmap.rotate(degrees: Float): Bitmap {
 
 /**
  * 긴 변이 [MAX_LONG_SIDE]를 초과하면 비율을 유지하며 다운스케일한다.
- *
- * 갤러리 이미지는 [uriToBitmap]에서 이미 처리되지만,
- * CameraX ImageCapture는 전체 해상도 Bitmap을 반환하므로 이 함수로 후처리한다.
  */
 fun Bitmap.downscaleIfNeeded(): Bitmap {
     val longSide = maxOf(width, height)
