@@ -28,7 +28,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Activity 종료 시 ML Kit recognizer 네이티브 리소스 해제
-        OcrProcessor.close()
+        // isFinishing=true 일 때만 해제.
+        // 카메라 앱 복귀·화면 회전 등 재생성 시에는 호출하지 않는다.
+        if (isFinishing) OcrProcessor.close()
     }
 }
