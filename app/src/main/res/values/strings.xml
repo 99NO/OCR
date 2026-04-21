@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">OCR 방향 판정 데모</string>
+    <string name="btn_camera">카메라로 촬영</string>
+    <string name="btn_gallery">갤러리에서 선택</string>
+    <string name="label_normal">정상 방향</string>
+    <string name="label_flipped">뒤집힘 — 자동 보정됨</string>
+    <string name="label_uncertain">판정 보류</string>
+    <string name="info_rerun">원본에서 뒤집힘 감지 → 180° 회전 후 재인식</string>
+    <string name="label_contributing_lines">기여 라인 수 %1$d / 전체 라인 수 %2$d</string>
+    <string name="label_final_text">최종 인식 텍스트</string>
+    <!-- 카메라 화면 -->
+    <string name="btn_capture">촬영</string>
+    <string name="btn_back">← 뒤로</string>
+    <string name="camera_permission_title">카메라 권한이 필요합니다</string>
+    <string name="camera_permission_body">시스템 설정에서 카메라 권한을 허용한 뒤 다시 시도해 주세요.</string>
+    <string name="btn_go_back">돌아가기</string>
+    <string name="capture_error_prefix">촬영 실패</string>
+    <!-- 엣지 케이스 -->
+    <string name="error_image_load_failed">이미지를 불러올 수 없습니다.</string>
+    <string name="label_uncertain_no_text">텍스트를 인식하지 못했습니다 (UNCERTAIN)</string>
+    <string name="label_uncertain_insufficient">판정 가능한 라인이 부족합니다 (기여 라인 %1$d개)</string>
+</resources>
